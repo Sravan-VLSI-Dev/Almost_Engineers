@@ -1,0 +1,4 @@
+project_id = "xmeoljzzrmgqhpckrsbx"
+
+[functions.career-analyze]
+verify_jwt = true

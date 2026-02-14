@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { MatchStrategy } from "@/lib/types";
+import { PsychologicalInsightsPanel } from "./PsychologicalInsightsPanel";
 
 interface Props {
   strategy: MatchStrategy;
@@ -44,6 +45,17 @@ export const StrategyPanel = ({ strategy }: Props) => {
         <h3 className="font-medium">{titleByBand[strategy.match_band]}</h3>
         <p className="text-xs text-muted-foreground mt-1">Match band: {strategy.match_band}</p>
       </div>
+
+      <div className="glass rounded-lg p-4">
+        <h4 className="text-sm font-medium text-muted-foreground mb-2">Projection Section</h4>
+        <div className="text-xs text-muted-foreground space-y-1">
+          <p>Current match: {strategy.source_metrics?.role_match_percentage ?? "N/A"}%</p>
+          <p>Projected match: {strategy.source_metrics?.projection_match_percentage ?? "N/A"}%</p>
+          <p>Total learning hours: {strategy.source_metrics?.roadmap_hours ?? "N/A"}</p>
+        </div>
+      </div>
+
+      <PsychologicalInsightsPanel psychologicalLayer={strategy.psychological_layer} />
 
       {strategy.match_band === "HIGH" && (
         <div className="space-y-4">

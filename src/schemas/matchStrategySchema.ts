@@ -15,6 +15,11 @@ export const matchStrategySchema = z.object({
     pivot_plan: z.any().optional(),
     transition_timeline: z.any().optional(),
   }),
+  psychological_layer: z.object({
+    motivation_message: z.string(),
+    identity_alignment_insight: z.string(),
+    industry_expectation_range: z.string(),
+  }).optional(),
   source_metrics: z.object({
     role_match_percentage: z.number().nullable().optional(),
     projection_match_percentage: z.number().nullable().optional(),

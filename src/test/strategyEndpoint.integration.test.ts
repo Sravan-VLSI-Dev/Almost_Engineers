@@ -11,6 +11,11 @@ vi.mock("@/integrations/supabase/client", () => ({
             prioritized_roadmap: ["TypeScript", "System Design"],
             learning_timeline: [{ week: 1, primary_focus: "TypeScript", outcome: "Ship one artifact" }],
           },
+          psychological_layer: {
+            motivation_message: "You have solid foundations. Structured focus will unlock this role.",
+            identity_alignment_insight: "Your strengths indicate structured problem solving and long-term systems orientation.",
+            industry_expectation_range: "4-6 months",
+          },
           source_metrics: {
             role_match_percentage: 58,
             projection_match_percentage: 78,
@@ -41,5 +46,6 @@ describe("strategy endpoint integration", () => {
     const response = await fetchMatchStrategy("profile-abc", "role-xyz");
     expect(response.match_band).toBe("MID");
     expect(response.strategy.prioritized_roadmap).toBeDefined();
+    expect(response.psychological_layer?.motivation_message).toBeTruthy();
   });
 });

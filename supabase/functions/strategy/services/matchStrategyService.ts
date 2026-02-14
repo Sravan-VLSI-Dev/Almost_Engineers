@@ -1,6 +1,10 @@
 import { z } from "https://esm.sh/zod@3.25.76";
 import { getMatchBand, type MatchBand } from "../domain/matchStrategyEngine.ts";
+import { getMotivationMessage } from "../domain/motivationEngine.ts";
+import { clusterIdentity } from "../domain/identityCluster.ts";
+import { getIndustryExpectation } from "../domain/expectationEngine.ts";
 import { refineStrategyNarrative } from "../agents/matchStrategyAgent.ts";
+import { buildIdentityInsight } from "../agents/identityInsightAgent.ts";
 
 const strategyResponseSchema = z.object({
   match_band: z.enum(["HIGH", "MID", "LOW"]),
@@ -16,6 +20,11 @@ const strategyResponseSchema = z.object({
     alternate_roles: z.any().optional(),
     pivot_plan: z.any().optional(),
     transition_timeline: z.any().optional(),
+  }),
+  psychological_layer: z.object({
+    motivation_message: z.string(),
+    identity_alignment_insight: z.string(),
+    industry_expectation_range: z.string(),
   }),
 });
 
@@ -246,9 +255,27 @@ export async function buildMatchStrategy(params: {
     strategy = await lowBandStrategy({ profile, skillGap, roleRequirementsRows: roleReqRows || [] });
   }
 
+  const identityCluster = clusterIdentity([
+    ...((skillGap?.strong || []) as string[]),
+    ...((skillGap?.weak || []) as string[]),
+    ...((profile?.skills || []) as string[]),
+  ]);
+
+  const identity = await buildIdentityInsight({
+    dominant_traits: identityCluster.dominant_traits,
+    suggested_long_term_direction: identityCluster.suggested_long_term_direction,
+  });
+
+  const psychological_layer = {
+    motivation_message: getMotivationMessage(matchBand),
+    identity_alignment_insight: identity.identity_insight,
+    industry_expectation_range: getIndustryExpectation(roleAnalysis.role || ""),
+  };
+
   const response = {
     match_band: matchBand as MatchBand,
     strategy,
+    psychological_layer,
     source_metrics: {
       role_match_percentage: skillGap.role_match_percentage,
       projection_match_percentage: projection?.projected_role_match_percentage || null,
@@ -259,13 +286,14 @@ export async function buildMatchStrategy(params: {
   const parsed = strategyResponseSchema.parse({
     match_band: response.match_band,
     strategy: response.strategy,
+    psychological_layer: response.psychological_layer,
   });
 
   const { error: saveErr } = await supabase.from("match_strategies").insert({
     profile_id: profileId,
     role_id: roleId,
     match_band: parsed.match_band,
-    strategy_json: response.strategy,
+    strategy_json: { strategy: response.strategy, psychological_layer: response.psychological_layer },
   });
   if (saveErr && !isMissingRelationError(saveErr)) throw saveErr;
 

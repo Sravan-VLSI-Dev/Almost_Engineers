@@ -116,6 +116,11 @@ export interface MatchStrategy {
     projection_match_percentage?: number | null;
     roadmap_hours?: number | null;
   };
+  psychological_layer?: {
+    motivation_message: string;
+    identity_alignment_insight: string;
+    industry_expectation_range: string;
+  };
 }
 
 export type AnalysisStep = 'idle' | 'profile' | 'role' | 'gap' | 'roadmap' | 'interview' | 'complete';

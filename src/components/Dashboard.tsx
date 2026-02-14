@@ -14,6 +14,9 @@ import { Download, LogOut, RotateCcw } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { fetchMatchStrategy } from "@/services/matchStrategyService";
 import { getMatchBand } from "@/domain/matchStrategyEngine";
+import { getMotivationMessage } from "@/domain/motivationEngine";
+import { getIndustryExpectation } from "@/domain/expectationEngine";
+import { clusterIdentity } from "@/domain/identityCluster";
 
 export const Dashboard = () => {
   const [step, setStep] = useState<AnalysisStep>("idle");
@@ -27,6 +30,20 @@ export const Dashboard = () => {
   const [strategy, setStrategy] = useState<MatchStrategy | null>(null);
   const [strategyLoading, setStrategyLoading] = useState(false);
   const [strategyError, setStrategyError] = useState<string | null>(null);
+
+  const ensurePsychologicalLayer = (input: MatchStrategy, sg: SkillGap, ra: RoleAnalysis): MatchStrategy => {
+    if (input.psychological_layer) return input;
+
+    const identity = clusterIdentity([...(sg.strong || []), ...(sg.weak || [])]);
+    return {
+      ...input,
+      psychological_layer: {
+        motivation_message: getMotivationMessage(input.match_band),
+        identity_alignment_insight: `Your current strengths indicate ${identity.dominant_traits.join(" and ")} tendencies. ${identity.suggested_long_term_direction}`,
+        industry_expectation_range: getIndustryExpectation(ra.role || ""),
+      },
+    };
+  };
 
   const buildLocalStrategyFallback = (sg: SkillGap, ra: RoleAnalysis, rm: Roadmap): MatchStrategy => {
     const band = getMatchBand(sg.role_match_percentage);
@@ -53,6 +70,11 @@ export const Dashboard = () => {
             improvements: sg.missing.map((s) => `Create one polished artifact demonstrating ${s}.`).slice(0, 5),
           },
         },
+        psychological_layer: {
+          motivation_message: getMotivationMessage("HIGH"),
+          identity_alignment_insight: "Your current profile shows strong execution readiness with room for precision-level refinement in role-critical areas.",
+          industry_expectation_range: getIndustryExpectation(ra.role || ""),
+        },
       };
     }
 
@@ -75,6 +97,11 @@ export const Dashboard = () => {
             ],
             narrative: "Use certification to validate fundamentals after shipping practical projects.",
           },
+        },
+        psychological_layer: {
+          motivation_message: getMotivationMessage("MID"),
+          identity_alignment_insight: "Your profile reflects meaningful foundations and a structured growth trajectory toward stronger role alignment.",
+          industry_expectation_range: getIndustryExpectation(ra.role || ""),
         },
         source_metrics: {
           role_match_percentage: sg.role_match_percentage,
@@ -105,6 +132,11 @@ export const Dashboard = () => {
           estimated_weeks: Math.ceil((sg.missing.length * 24) / 10),
         },
       },
+      psychological_layer: {
+        motivation_message: getMotivationMessage("LOW"),
+        identity_alignment_insight: "Your strengths suggest transferable potential; a staged path can improve fit while preserving long-term direction.",
+        industry_expectation_range: getIndustryExpectation(ra.role || ""),
+      },
       source_metrics: {
         role_match_percentage: sg.role_match_percentage,
         roadmap_hours: rm.total_learning_hours,
@@ -118,13 +150,13 @@ export const Dashboard = () => {
     setStrategyError(null);
     try {
       const s = await fetchMatchStrategy(profileId, roleId);
-      setStrategy(s);
+      setStrategy(ensurePsychologicalLayer(s, sg, ra));
     } catch (err: unknown) {
       // Retry once in case of transient edge transport/network issue.
       try {
         await new Promise((resolve) => setTimeout(resolve, 700));
         const retried = await fetchMatchStrategy(profileId, roleId);
-        setStrategy(retried);
+        setStrategy(ensurePsychologicalLayer(retried, sg, ra));
         setStrategyError(null);
       } catch {
         setStrategy(buildLocalStrategyFallback(sg, ra, rm));

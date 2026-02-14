@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ProfileInput } from "./ProfileInput";
@@ -12,11 +12,15 @@ import { AnalysisStep, UserProfile, RoleAnalysis, SkillGap, Roadmap, InterviewGu
 import { Button } from "@/components/ui/button";
 import { Download, LogOut, RotateCcw } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { motion } from "framer-motion";
 import { fetchMatchStrategy } from "@/services/matchStrategyService";
 import { getMatchBand } from "@/domain/matchStrategyEngine";
 import { getMotivationMessage } from "@/domain/motivationEngine";
 import { getIndustryExpectation } from "@/domain/expectationEngine";
 import { clusterIdentity } from "@/domain/identityCluster";
+import { SystemStatusIndicator } from "./SystemStatusIndicator";
+
+const CareerCoreScene = lazy(() => import("./three/CareerCoreScene").then((m) => ({ default: m.CareerCoreScene })));
 
 export const Dashboard = () => {
   const [step, setStep] = useState<AnalysisStep>("idle");
@@ -30,6 +34,7 @@ export const Dashboard = () => {
   const [strategy, setStrategy] = useState<MatchStrategy | null>(null);
   const [strategyLoading, setStrategyLoading] = useState(false);
   const [strategyError, setStrategyError] = useState<string | null>(null);
+  const [exportLoading, setExportLoading] = useState(false);
 
   const ensurePsychologicalLayer = (input: MatchStrategy, sg: SkillGap, ra: RoleAnalysis): MatchStrategy => {
     if (input.psychological_layer) return input;
@@ -233,6 +238,7 @@ export const Dashboard = () => {
 
   const handleExportPdf = async () => {
     if (!profile?.id) return;
+    setExportLoading(true);
     try {
       const result = await api.exportAnalysisPdf(profile.id);
       const byteChars = atob(result.base64_pdf);
@@ -248,26 +254,38 @@ export const Dashboard = () => {
       toast.success("PDF export generated.");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to export PDF");
+    } finally {
+      setExportLoading(false);
     }
   };
 
+  const status = useMemo(() => ({
+    analysisComplete: step === "complete",
+    roadmapReady: !!roadmap,
+    interviewReady: !!interview,
+  }), [step, roadmap, interview]);
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative overflow-hidden">
+      <div className="pointer-events-none absolute inset-0 opacity-70 [background-image:linear-gradient(rgba(147,126,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(147,126,255,0.08)_1px,transparent_1px)] [background-size:30px_30px]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(203,192,255,.5),transparent_40%),radial-gradient(circle_at_80%_0%,rgba(232,220,255,.45),transparent_40%)]" />
       {/* Header */}
-      <header className="border-b border-border/50 bg-card/50 backdrop-blur-sm sticky top-0 z-10">
+      <header className="border-b border-border/50 bg-card/50 backdrop-blur-xl sticky top-0 z-10">
         <div className="container mx-auto flex items-center justify-between h-14 px-4">
           <h1 className="text-lg font-bold tracking-tight">
-            <span className="text-gradient">Career Co-Pilot</span>
+            <span className="text-gradient">Career Vector</span>
           </h1>
           <div className="flex items-center gap-2">
+            <SystemStatusIndicator {...status} />
             {step !== "idle" && (
               <Button variant="ghost" size="sm" onClick={reset}>
                 <RotateCcw className="h-4 w-4 mr-1" /> New Analysis
               </Button>
             )}
             {step === "complete" && profile?.id && resumeBullets && (
-              <Button variant="ghost" size="sm" onClick={handleExportPdf}>
-                <Download className="h-4 w-4 mr-1" /> Export PDF
+              <Button variant="ghost" size="sm" onClick={handleExportPdf} disabled={exportLoading}>
+                <Download className={`h-4 w-4 mr-1 ${exportLoading ? "animate-spin" : ""}`} />
+                {exportLoading ? "Compiling..." : "Export PDF"}
               </Button>
             )}
             <Button variant="ghost" size="sm" onClick={handleSignOut}>
@@ -277,7 +295,7 @@ export const Dashboard = () => {
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
+      <div className="container mx-auto px-4 py-8 max-w-6xl relative z-[1]">
         {step === "idle" ? (
           <ProfileInput onSubmit={runPipeline} loading={loading} />
         ) : (
@@ -287,8 +305,18 @@ export const Dashboard = () => {
             </div>
             <div>
               {step === "complete" && skillGap && roleAnalysis && roadmap && interview ? (
+                <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}>
+                  <div className="mb-4">
+                    <Suspense fallback={<div className="h-[260px] glass rounded-xl flex items-center justify-center text-xs text-muted-foreground">Loading intelligence core...</div>}>
+                      <CareerCoreScene strong={skillGap.strong} weak={skillGap.weak} missing={skillGap.missing} />
+                    </Suspense>
+                    <p className="mt-2 text-[11px] text-[#7edeea]">3D rendering active: skill nodes, company clusters, and learning signals are data-driven from your latest analysis.</p>
+                  </div>
+                </motion.div>
+              ) : null}
+              {step === "complete" && skillGap && roleAnalysis && roadmap && interview ? (
                 <Tabs defaultValue="gap" className="space-y-4">
-                  <TabsList className="glass w-full justify-start">
+                  <TabsList className="glass w-full justify-start border border-white/60 bg-white/70">
                     <TabsTrigger value="gap">Skill Gap</TabsTrigger>
                     <TabsTrigger value="roadmap">Roadmap</TabsTrigger>
                     <TabsTrigger value="interview">Interview</TabsTrigger>

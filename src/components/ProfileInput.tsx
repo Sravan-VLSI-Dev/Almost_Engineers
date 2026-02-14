@@ -7,6 +7,7 @@ import { UserProfile } from "@/lib/types";
 import { Upload, Github, Linkedin, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { AnimatePresence, motion } from "framer-motion";
 
 interface Props {
   onSubmit: (profile: Partial<UserProfile>, role: string) => void;
@@ -24,6 +25,8 @@ export const ProfileInput = ({ onSubmit, loading }: Props) => {
   const [resumeFilePath, setResumeFilePath] = useState<string | undefined>(undefined);
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
   const [uploadingPdf, setUploadingPdf] = useState(false);
+  const [scanProgress, setScanProgress] = useState(0);
+  const [scanActive, setScanActive] = useState(false);
 
   const extractPdfText = async (file: File): Promise<string> => {
     const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
@@ -99,11 +102,50 @@ export const ProfileInput = ({ onSubmit, loading }: Props) => {
       resume_file_path: resumeFilePath,
     };
 
+    setScanActive(true);
+    setScanProgress(8);
+    const tick = setInterval(() => {
+      setScanProgress((prev) => (prev >= 92 ? prev : prev + 7));
+    }, 120);
+
     onSubmit(profile, role.trim());
+    setTimeout(() => {
+      clearInterval(tick);
+      setScanProgress(100);
+      toast.success("Career Engine Calibrated");
+      setTimeout(() => {
+        setScanActive(false);
+        setScanProgress(0);
+      }, 320);
+    }, 1100);
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 animate-fade-in">
+    <form onSubmit={handleSubmit} className="space-y-6 animate-fade-in relative">
+      <AnimatePresence>
+        {scanActive && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-20 rounded-xl bg-white/55 backdrop-blur-[1px] pointer-events-none overflow-hidden"
+          >
+            <motion.div
+              initial={{ x: "-100%" }}
+              animate={{ x: "100%" }}
+              transition={{ duration: 1.1, ease: "linear" }}
+              className="absolute top-0 h-full w-1/3 bg-gradient-to-r from-transparent via-[#c6bbff]/60 to-transparent"
+            />
+            <div className="absolute bottom-4 left-4 right-4 glass rounded-lg px-3 py-2">
+              <p className="text-xs text-muted-foreground mb-2">Profile Scan in Progress</p>
+              <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
+                <motion.div className="h-full bg-gradient-to-r from-primary to-accent" animate={{ width: `${scanProgress}%` }} />
+              </div>
+              <p className="text-[10px] mt-1 font-mono">{scanProgress}% structured extraction</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <div className="glass rounded-lg p-6 space-y-4">
         <h2 className="text-lg font-semibold flex items-center gap-2">
           <FileText className="h-5 w-5 text-primary" />
@@ -169,7 +211,7 @@ export const ProfileInput = ({ onSubmit, loading }: Props) => {
           className="text-lg"
         />
         <Button type="submit" className="w-full" disabled={loading || !role.trim() || uploadingPdf}>
-          {loading ? "Analyzing..." : "Launch Analysis"}
+          {loading ? "Calibrating Career Engine..." : "Launch Analysis"}
         </Button>
       </div>
     </form>

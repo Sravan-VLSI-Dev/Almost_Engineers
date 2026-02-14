@@ -96,4 +96,26 @@ export interface ResumeBulletResult {
   bullets: ResumeBullet[];
 }
 
+export interface MatchStrategy {
+  match_band: "HIGH" | "MID" | "LOW";
+  strategy: {
+    resume_optimization?: unknown;
+    company_targets?: unknown;
+    interview_strategy?: unknown;
+    portfolio_strategy?: unknown;
+    prioritized_roadmap?: unknown;
+    learning_timeline?: unknown;
+    projects?: unknown;
+    certifications?: unknown;
+    alternate_roles?: unknown;
+    pivot_plan?: unknown;
+    transition_timeline?: unknown;
+  };
+  source_metrics?: {
+    role_match_percentage?: number | null;
+    projection_match_percentage?: number | null;
+    roadmap_hours?: number | null;
+  };
+}
+
 export type AnalysisStep = 'idle' | 'profile' | 'role' | 'gap' | 'roadmap' | 'interview' | 'complete';

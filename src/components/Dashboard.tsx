@@ -6,11 +6,14 @@ import { AnalysisPipeline } from "./AnalysisPipeline";
 import { SkillGapView } from "./SkillGapView";
 import { RoadmapView } from "./RoadmapView";
 import { InterviewView } from "./InterviewView";
+import { StrategyPanel } from "./StrategyPanel";
 import { api } from "@/lib/api";
-import { AnalysisStep, UserProfile, RoleAnalysis, SkillGap, Roadmap, InterviewGuide, ResumeBulletResult } from "@/lib/types";
+import { AnalysisStep, UserProfile, RoleAnalysis, SkillGap, Roadmap, InterviewGuide, ResumeBulletResult, MatchStrategy } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Download, LogOut, RotateCcw } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { fetchMatchStrategy } from "@/services/matchStrategyService";
+import { getMatchBand } from "@/domain/matchStrategyEngine";
 
 export const Dashboard = () => {
   const [step, setStep] = useState<AnalysisStep>("idle");
@@ -21,6 +24,116 @@ export const Dashboard = () => {
   const [roadmap, setRoadmap] = useState<Roadmap | null>(null);
   const [interview, setInterview] = useState<InterviewGuide | null>(null);
   const [resumeBullets, setResumeBullets] = useState<ResumeBulletResult | null>(null);
+  const [strategy, setStrategy] = useState<MatchStrategy | null>(null);
+  const [strategyLoading, setStrategyLoading] = useState(false);
+  const [strategyError, setStrategyError] = useState<string | null>(null);
+
+  const buildLocalStrategyFallback = (sg: SkillGap, ra: RoleAnalysis, rm: Roadmap): MatchStrategy => {
+    const band = getMatchBand(sg.role_match_percentage);
+
+    if (band === "HIGH") {
+      return {
+        match_band: "HIGH",
+        strategy: {
+          resume_optimization: {
+            suggestions: sg.weak.map((s) => `Add quantified impact evidence for ${s}.`).slice(0, 6),
+          },
+          company_targets: (sg.company_matches && sg.company_matches.length > 0
+            ? sg.company_matches
+            : ra.top_companies.map((c) => ({ company: c.company, match_percentage: null, missing_skills: c.required_skills.slice(0, 2) }))
+          ).slice(0, 6),
+          interview_strategy: {
+            focus_areas: [...sg.weak, ...sg.missing].slice(0, 6),
+            drills: [
+              "Run 3 timed mock interviews with role-specific scenarios.",
+              "Prepare concise STAR stories for leadership and conflict.",
+            ],
+          },
+          portfolio_strategy: {
+            improvements: sg.missing.map((s) => `Create one polished artifact demonstrating ${s}.`).slice(0, 5),
+          },
+        },
+      };
+    }
+
+    if (band === "MID") {
+      const prioritized = [...sg.missing, ...sg.weak];
+      return {
+        match_band: "MID",
+        strategy: {
+          prioritized_roadmap: prioritized,
+          learning_timeline: Array.from({ length: 12 }, (_, i) => ({
+            week: i + 1,
+            primary_focus: prioritized.length ? prioritized[i % prioritized.length] : ra.role,
+            outcome: "Produce one validated learning artifact.",
+          })),
+          projects: sg.missing.slice(0, 6).map((s) => `Build one role-relevant project focused on ${s}.`),
+          certifications: {
+            recommendations: [
+              "Complete one vendor-recognized certification aligned to your stack.",
+              "Add one verification/testing certificate if targeting hardware/verification roles.",
+            ],
+            narrative: "Use certification to validate fundamentals after shipping practical projects.",
+          },
+        },
+        source_metrics: {
+          role_match_percentage: sg.role_match_percentage,
+          roadmap_hours: rm.total_learning_hours,
+          projection_match_percentage: rm.projection?.projected_role_match_percentage ?? null,
+        },
+      };
+    }
+
+    return {
+      match_band: "LOW",
+      strategy: {
+        alternate_roles: [
+          { role: "QA Engineer", overlap_score: 50, rationale: "Closer path from verification and testing foundations." },
+          { role: "Test Automation Engineer", overlap_score: 48, rationale: "Strong alignment with validation and debugging workflow." },
+          { role: "Junior Verification Engineer", overlap_score: 45, rationale: "Incremental path toward advanced target role." },
+        ],
+        pivot_plan: {
+          strengths_overlap: sg.strong,
+          steps: [
+            "Focus on transferable strengths, preferred work-style, and portfolio signals.",
+            "Sequence missing fundamentals before advanced topics.",
+            "Target adjacent roles while building toward the dream role.",
+          ],
+        },
+        transition_timeline: {
+          formula: "(missing_skills * avg_hours) / weekly_capacity",
+          estimated_weeks: Math.ceil((sg.missing.length * 24) / 10),
+        },
+      },
+      source_metrics: {
+        role_match_percentage: sg.role_match_percentage,
+        roadmap_hours: rm.total_learning_hours,
+        projection_match_percentage: rm.projection?.projected_role_match_percentage ?? null,
+      },
+    };
+  };
+
+  const loadStrategy = async (profileId: string, roleId: string, sg: SkillGap, ra: RoleAnalysis, rm: Roadmap) => {
+    setStrategyLoading(true);
+    setStrategyError(null);
+    try {
+      const s = await fetchMatchStrategy(profileId, roleId);
+      setStrategy(s);
+    } catch (err: unknown) {
+      // Retry once in case of transient edge transport/network issue.
+      try {
+        await new Promise((resolve) => setTimeout(resolve, 700));
+        const retried = await fetchMatchStrategy(profileId, roleId);
+        setStrategy(retried);
+        setStrategyError(null);
+      } catch {
+        setStrategy(buildLocalStrategyFallback(sg, ra, rm));
+        setStrategyError("Using local copilot mode for strategy. Core analysis remains fully available.");
+      }
+    } finally {
+      setStrategyLoading(false);
+    }
+  };
 
   const runPipeline = async (profileData: Partial<UserProfile>, role: string) => {
     setLoading(true);
@@ -59,6 +172,8 @@ export const Dashboard = () => {
         .catch(() => {
           // Keep analysis usable even if optional endpoint is unavailable.
         });
+
+      loadStrategy(analyzedProfile.id!, ra.id!, sg, ra, rm);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Analysis failed");
       if (step === "idle") setStep("idle");
@@ -75,6 +190,9 @@ export const Dashboard = () => {
     setRoadmap(null);
     setInterview(null);
     setResumeBullets(null);
+    setStrategy(null);
+    setStrategyError(null);
+    setStrategyLoading(false);
   };
 
   const handleSignOut = async () => {
@@ -142,6 +260,7 @@ export const Dashboard = () => {
                     <TabsTrigger value="gap">Skill Gap</TabsTrigger>
                     <TabsTrigger value="roadmap">Roadmap</TabsTrigger>
                     <TabsTrigger value="interview">Interview</TabsTrigger>
+                    <TabsTrigger value="strategy">Strategy</TabsTrigger>
                   </TabsList>
                   <TabsContent value="gap">
                     <SkillGapView gap={skillGap} roleAnalysis={roleAnalysis} />
@@ -151,6 +270,20 @@ export const Dashboard = () => {
                   </TabsContent>
                   <TabsContent value="interview">
                     <InterviewView guide={interview} />
+                  </TabsContent>
+                  <TabsContent value="strategy">
+                    {strategyLoading ? (
+                      <div className="glass rounded-lg p-6 text-sm text-muted-foreground">Generating strategy plan...</div>
+                    ) : strategy ? (
+                      <div className="space-y-3">
+                        {strategyError && (
+                          <div className="glass rounded-lg p-3 text-xs text-muted-foreground">{strategyError}</div>
+                        )}
+                        <StrategyPanel strategy={strategy} />
+                      </div>
+                    ) : (
+                      <div className="glass rounded-lg p-6 text-sm text-muted-foreground">No strategy available yet.</div>
+                    )}
                   </TabsContent>
                 </Tabs>
               ) : (

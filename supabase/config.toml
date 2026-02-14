@@ -2,3 +2,6 @@ project_id = "xmeoljzzrmgqhpckrsbx"
 
 [functions.career-analyze]
 verify_jwt = true
+
+[functions.strategy]
+verify_jwt = true

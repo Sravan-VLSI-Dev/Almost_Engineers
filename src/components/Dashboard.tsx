@@ -308,7 +308,7 @@ export const Dashboard = () => {
                 <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}>
                   <div className="mb-4">
                     <Suspense fallback={<div className="h-[260px] glass rounded-xl flex items-center justify-center text-xs text-muted-foreground">Loading intelligence core...</div>}>
-                      <CareerCoreScene strong={skillGap.strong} weak={skillGap.weak} missing={skillGap.missing} />
+                      <CareerCoreScene strong={skillGap.strong} weak={skillGap.weak} missing={skillGap.missing} roleMatch={skillGap.role_match_percentage} />
                     </Suspense>
                     <p className="mt-2 text-[11px] text-[#7edeea]">3D rendering active: skill nodes, company clusters, and learning signals are data-driven from your latest analysis.</p>
                   </div>

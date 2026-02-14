@@ -81,15 +81,38 @@ const CompanyNodes = ({ companies }: Props) => {
 };
 
 export const CompanyClusterScene = ({ companies }: Props) => {
+  const [hoveredCard, setHoveredCard] = useState(false);
+  const ranked = [...companies].sort((a, b) => Number(b.match_percentage ?? 0) - Number(a.match_percentage ?? 0));
+  const top = ranked[0];
+  const missingFreq = new Map<string, number>();
+  for (const c of companies) {
+    for (const s of c.missing_skills || []) {
+      missingFreq.set(s, (missingFreq.get(s) || 0) + 1);
+    }
+  }
+  const commonMissing = [...missingFreq.entries()].sort((a, b) => b[1] - a[1]).slice(0, 2).map(([s]) => s);
+
   if (!companies.length) {
     return <div className="glass rounded-xl p-4 text-sm text-muted-foreground">Company intelligence unavailable.</div>;
   }
 
   return (
-    <div className="h-[300px] rounded-xl overflow-hidden bg-gradient-to-br from-[#0d9dad] via-[#0a6d89] to-[#0a3f62] border border-[#49d9e8]/35 shadow-[0_16px_32px_-24px_rgba(10,132,171,.6)] relative">
+    <div
+      className="h-[300px] rounded-xl overflow-hidden bg-gradient-to-br from-[#0d9dad] via-[#0a6d89] to-[#0a3f62] border border-[#49d9e8]/35 shadow-[0_16px_32px_-24px_rgba(10,132,171,.6)] relative"
+      onMouseEnter={() => setHoveredCard(true)}
+      onMouseLeave={() => setHoveredCard(false)}
+    >
       <div className="absolute top-3 left-3 z-10 text-[11px] tracking-wide uppercase text-[#b7f7ff] font-medium bg-[#052238]/60 border border-[#2ad3e5]/45 rounded-full px-3 py-1">
         3D Company Cluster
       </div>
+      {hoveredCard && (
+        <div className="absolute bottom-3 left-3 right-3 z-10 glass border-[#2ad3e5]/40 bg-[#052238]/70 rounded-lg px-3 py-2 text-[11px] text-[#b7f7ff]">
+          Input: {companies.length} company targets scored.
+          Output insight: best near-term target is {top?.company || "N/A"}
+          {top?.match_percentage != null ? ` at ${Math.round(top.match_percentage)}% match.` : "."}
+          {commonMissing.length ? ` Most common skill blockers: ${commonMissing.join(", ")}.` : ""}
+        </div>
+      )}
       <Canvas
         camera={{ position: [0, 0, 6], fov: 54 }}
         dpr={[1, 1.8]}

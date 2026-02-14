@@ -15,6 +15,7 @@ interface Props {
   strong: string[];
   weak: string[];
   missing: string[];
+  roleMatch?: number;
 }
 
 const colorOf = (type: SkillNode["type"]) => {
@@ -85,11 +86,27 @@ const NetworkGraph = ({ strong, weak, missing }: Props) => {
 };
 
 export const SkillNetworkScene = (props: Props) => {
+  const [hovered, setHovered] = useState(false);
+  const topMissing = props.missing.slice(0, 3);
+  const topWeak = props.weak.slice(0, 2);
+
   return (
-    <div className="h-[300px] rounded-xl overflow-hidden bg-gradient-to-br from-[#0d9dad] via-[#0a6d89] to-[#0a3f62] border border-[#49d9e8]/35 shadow-[0_16px_32px_-24px_rgba(10,132,171,.6)] relative">
+    <div
+      className="h-[300px] rounded-xl overflow-hidden bg-gradient-to-br from-[#0d9dad] via-[#0a6d89] to-[#0a3f62] border border-[#49d9e8]/35 shadow-[0_16px_32px_-24px_rgba(10,132,171,.6)] relative"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
       <div className="absolute top-3 left-3 z-10 text-[11px] tracking-wide uppercase text-[#b7f7ff] font-medium bg-[#052238]/60 border border-[#2ad3e5]/45 rounded-full px-3 py-1">
         3D Skill Network
       </div>
+      {hovered && (
+        <div className="absolute bottom-3 left-3 right-3 z-10 glass border-[#2ad3e5]/40 bg-[#052238]/70 rounded-lg px-3 py-2 text-[11px] text-[#b7f7ff]">
+          Input graph: {props.strong.length + props.weak.length + props.missing.length} skills mapped.
+          Output insight: prioritize {topMissing.length ? topMissing.join(", ") : "weak/missing nodes"} first,
+          then strengthen {topWeak.length ? topWeak.join(", ") : "existing weak nodes"} to lift match.
+          {props.roleMatch != null ? ` Current role match signal: ${Math.round(props.roleMatch)}%.` : ""}
+        </div>
+      )}
       <Canvas
         camera={{ position: [0, 0, 6], fov: 50 }}
         dpr={[1, 1.7]}

@@ -1,4 +1,4 @@
-import { Suspense, useMemo, useRef } from "react";
+import { Suspense, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Float, Line, Sphere } from "@react-three/drei";
 import { easing } from "maath";
@@ -10,6 +10,7 @@ type Props = {
   strong: string[];
   weak: string[];
   missing: string[];
+  roleMatch?: number;
 };
 
 const CareerCoreNodes = ({ strong, weak, missing }: Props) => {
@@ -89,14 +90,30 @@ const CareerCoreNodes = ({ strong, weak, missing }: Props) => {
   );
 };
 
-export const CareerCoreScene = ({ strong, weak, missing }: Props) => {
+export const CareerCoreScene = ({ strong, weak, missing, roleMatch }: Props) => {
   const isMobile = useMediaQuery({ maxWidth: 768 });
+  const [hovered, setHovered] = useState(false);
+  const topMissing = missing.slice(0, 2).join(", ");
+  const topStrong = strong.slice(0, 2).join(", ");
+  const band = roleMatch != null ? (roleMatch > 75 ? "high readiness" : roleMatch >= 40 ? "mid readiness" : "early-stage readiness") : "readiness pending";
 
   return (
-    <div className="h-[300px] w-full rounded-xl overflow-hidden bg-gradient-to-br from-[#0d9dad] via-[#0a6d89] to-[#0a3f62] border border-[#49d9e8]/35 shadow-[0_18px_40px_-26px_rgba(10,132,171,.65)] relative">
+    <div
+      className="h-[300px] w-full rounded-xl overflow-hidden bg-gradient-to-br from-[#0d9dad] via-[#0a6d89] to-[#0a3f62] border border-[#49d9e8]/35 shadow-[0_18px_40px_-26px_rgba(10,132,171,.65)] relative"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
       <div className="absolute top-3 left-3 z-10 text-[11px] tracking-wide uppercase text-[#b7f7ff] font-medium bg-[#052238]/60 border border-[#2ad3e5]/45 rounded-full px-3 py-1">
         3D Career Intelligence Core
       </div>
+      {hovered && (
+        <div className="absolute bottom-3 left-3 right-3 z-10 glass border-[#2ad3e5]/40 bg-[#052238]/70 rounded-lg px-3 py-2 text-[11px] text-[#b7f7ff]">
+          Input: {strong.length} strong, {weak.length} weak, {missing.length} missing skills.
+          Output signal: {roleMatch != null ? `${Math.round(roleMatch)}% role match (${band}).` : band}
+          {topMissing ? ` Priority blockers: ${topMissing}.` : ""}
+          {topStrong ? ` Current leverage: ${topStrong}.` : ""}
+        </div>
+      )}
       <Canvas
         dpr={[1, 1.8]}
         camera={{ position: [0, 0, isMobile ? 3.95 : 3.55], fov: 47 }}

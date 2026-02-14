@@ -21,7 +21,7 @@ export const SkillGapView = ({ gap, roleAnalysis }: Props) => {
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }} className="space-y-6">
       <div className="grid gap-4 lg:grid-cols-2">
         <Suspense fallback={<div className="h-[280px] glass rounded-xl flex items-center justify-center text-xs text-muted-foreground">Loading skill graph...</div>}>
-          <SkillNetworkScene strong={gap.strong} weak={gap.weak} missing={gap.missing} />
+          <SkillNetworkScene strong={gap.strong} weak={gap.weak} missing={gap.missing} roleMatch={gap.role_match_percentage} />
         </Suspense>
         <Suspense fallback={<div className="h-[260px] glass rounded-xl flex items-center justify-center text-xs text-muted-foreground">Loading company clusters...</div>}>
           <CompanyClusterScene companies={companies} />
